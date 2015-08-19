@@ -1,28 +1,19 @@
-# This script is an example of how you can run blender from the command line
-# (in background mode with no interface) to automate tasks, in this example it
-# creates a text object, camera and light, then renders and/or saves it.
-# This example also shows how you can parse command line options to scripts.
-#
-# Example usage for this test.
-#  blender --background --factory-startup --python $HOME/background_job.py -- \
-#          --text="Hello World" \
-#          --render="/tmp/hello" \
-#          --save="/tmp/hello.blend"
-#
-# Notice:
-# '--factory-startup' is used to avoid the user default settings from
-#                     interfearing with automated scene generation.
-#
-# '--' causes blender to ignore all following arguments so python can use them.
-#
-# See blender --help for details.
+# TODO
+# - color formats: hex, html names
+
 
 import bpy
 import os, time, json
-
+from pprint import pprint
 
 
 ### UTILS
+def frames_to_timecode(frame, framerate=25):
+    """from http://stackoverflow.com/questions/8488238/how-to-do-timecode-calculation"""
+    return '{0:02d}:{1:02d}:{2:02d}:{3:02d}'.format(frame // (3600*framerate),
+                                                    frame // (60*framerate) % 60,
+                                                    frame // framerate % 60,
+                                                    frame % framerate)
 
 def get_name_pattern(name, token='#'):
     """Get a string's padding pattern"""
@@ -97,31 +88,6 @@ def padding(s, frame):
 
 
 #####
-
-def add_text(sequencer, text, position, size, channel, frame, align, font_color=[1.0,1.0,1.0]):
-    #TODO: BG
-    #
-
-    # deselect all
-    for s in sequencer.sequences:
-        s.select = False
-
-
-    txt_seq = sequencer.sequences.new_effect('{}_f{:04}'.format(text, frame), 'TEXT', channel, frame, frame+1)
-    txt_seq.text = text
-    # txt_seq.blend_type = 'OVER_DROP'
-    txt_seq.location = position
-    txt_seq.align = align
-    txt_seq.font_size = size
-
-    col_seq = sequencer.sequences.new_effect('{}_f{:04}_BG'.format(text, frame), 'COLOR', channel+1, frame, frame+1)
-    col_seq.color = font_color
-    col_seq.blend_type = 'MULTIPLY'
-    # txt_seq.location = position
-
-    bpy.ops.sequencer.meta_make()
-    meta_strip = sequencer.active_strip
-    meta_strip.blend_type = 'OVER_DROP'
 
 
 class Metadata:
@@ -207,14 +173,44 @@ class Metadata:
             text = self.get_text(f)
             channel = 2
 
-            add_text(self.parent_stamp.sequencer, text, self.get_blender_position(), self.size, channel, f, self.align, self.color)
+            self.add_text(self.parent_stamp.sequencer, text, self.get_blender_position(), self.size, channel, f, self.align, self.color)
             # txt_seq = sequencer.sequences.new_effect('txt_{:04}'.format(f), 'TEXT', 2, f+1, f+2)
             # txt_seq.text = text + ' {:04}'.format(f+1)
             # txt_seq.blend_type = 'OVER_DROP'
 
+    @staticmethod
+    def add_text(sequencer, text, position, size, channel, frame, align, font_color=[1.0,1.0,1.0]):
+        #TODO: BG
+        #
+
+        # deselect all
+        for s in sequencer.sequences:
+            s.select = False
+
+
+        txt_seq = sequencer.sequences.new_effect('{}_f{:04}'.format(text, frame), 'TEXT', channel, frame, frame+1)
+        txt_seq.text = text
+        # txt_seq.blend_type = 'OVER_DROP'
+        txt_seq.location = position
+        txt_seq.align = align
+        txt_seq.font_size = size
+
+        col_seq = sequencer.sequences.new_effect('{}_f{:04}_BG'.format(text, frame), 'COLOR', channel+1, frame, frame+1)
+        col_seq.color = font_color
+        col_seq.blend_type = 'MULTIPLY'
+        # txt_seq.location = position
+
+        bpy.ops.sequencer.meta_make()
+        meta_strip = sequencer.active_strip
+        meta_strip.blend_type = 'OVER_DROP'
+
 class Frame_Metadata(Metadata):
     def get_text(self, frame):
         return '{} : {:02}'.format(self.field, frame)
+
+class Timecode_Metadata(Metadata):
+    def get_text(self, frame):
+        return '{} : {}'.format(self.field, frames_to_timecode(frame))
 
 class Date_Metadata(Metadata):
     def get_text(self, frame):
@@ -331,6 +327,8 @@ class Render_stamp:
             meta_type = Frame_Metadata
         elif meta['field'] == 'Date':
             meta_type = Date_Metadata
+        elif meta['field'] == 'Timecode':
+            meta_type = Timecode_Metadata
         else:
             meta_type = Metadata
 
@@ -364,7 +362,7 @@ def main():
     usage_text = \
     """Select images to add to sequence and arguments for metadata"""
 
-    parser = argparse.ArgumentParser(description=usage_text, prog="python stamp.py", conflict_handler='resolve', add_help=False)
+    parser = argparse.ArgumentParser(description=usage_text, prog="python stamp.py", epilog="ZIIIB", conflict_handler='resolve', add_help=False)
 
     parser.add_argument("-o", "--out", dest="render_dir", metavar='PATH',
             help="Render sequence to the specified path")
@@ -372,42 +370,75 @@ def main():
     parser.add_argument("-t", "--template", dest="template", metavar='TEMPLATE',
             help="Template file")
 
-    # if '-t' in argv or '--template' in argv:
-    #     a = '-t' if '-t' in argv else '--template'
-    #     i = argv.index(a)
-    #     template_path = argv[i+1]
-
     # print('\n')
     # print('BEFORE')
-    args, u_args = parser.parse_known_args(argv)  # In this example we wont use the args
+    args, u_args = parser.parse_known_args(argv)
     # print('AFTER')
 
-    ### parse metadata
+    ### parse metadata from template
     if args.template:
         with open(args.template, 'r') as f:
              template_args = f.read()
              template_args = (json.loads(template_args))
 
-        parser = argparse.ArgumentParser(parents=[parser])
+        parser = argparse.ArgumentParser(parents=[parser], description=usage_text, conflict_handler='resolve', epilog="-----"*3)
 
         parser.add_argument("image", nargs='+', type=str, help="Path to an image")
+        parser.add_argument("--default", help="Use all default values", action='store_true')
 
 
         for arg in template_args:
 
-            parser.add_argument('-{}'.format(arg["field"][0].lower()), '--{}'.format(arg["field"].lower()), dest=arg["field"].lower(),
-                help=arg["field"])
+            # parser.add_argument('-{}'.format(arg["field"][0].lower()), '--{}'.format(arg["field"].lower()), dest=arg["field"].lower(),
+            #     help=arg["field"])
+            if arg["value"] is None:
+                parser.add_argument('--{}'.format(arg["field"].lower()), dest=arg["field"].lower(),
+                    help=arg["field"], action='store_true', default=None)
+                
+            else:
+                parser.add_argument('--{}'.format(arg["field"].lower()), dest=arg["field"].lower(),
+                    help=arg["field"])
 
         args = parser.parse_args(argv)
 
-        if not (args.image or u_args.image):
-        # if "help" in args or not args.image:
-            parser.print_help()
+        # if not (args.image or u_args.image):
+        # # if "help" in args or not args.image:
+        #     parser.print_help()
+
+        for arg in template_args[:]:
+            # print(arg)
+
+            arg_key = arg["field"].lower()
+            if hasattr(args, arg_key):
+                arg_value = getattr(args, arg_key)
+                if arg_value is not None:
+                    print (arg_key, ":", arg_value)
+                elif not args.default:
+                    print(arg, 'JUST POPPED')
+                    template_args.remove(arg)
+
+            else:
+                print(arg_key, "missing from args")
+
+        print("\nTEMPLATE_ARGS")
+        pprint(template_args)
+        metadata = template_args
+
 
     else:
-        parser = argparse.ArgumentParser(parents=[parser])
+        usage_text = \
+    """Select images to add to sequence and arguments for metadata.
+Special fields for metada:
+    - date returns today's date by default.
+    - frame returns the current frame
+    - timecode returns the current timecode"""
+        parser = argparse.ArgumentParser(parents=[parser], description=usage_text, epilog="-----"*3, conflict_handler='resolve', formatter_class=argparse.RawTextHelpFormatter)
 
         parser.add_argument("image", nargs='+', type=str, help="Path to an image")
+        parser.add_argument("metadatas", nargs='+', type=str,
+help="""Metadata description. They are of the form:
+field:"Author",value:"Me",position:TOP-LEFT,inline:True, size:15,color:[1,1,1]
+You can specify multiple fields separated by semicolons.""")
         
         args = parser.parse_args(argv)
 
@@ -426,8 +457,8 @@ def main():
     }
 
 
-    for k, v in vars(args).items():
-        print('{:<15} : {}'.format(k,v))
+    # for k, v in vars(args).items():
+    #     print('{:<15} : {}'.format(k,v))
 
 
     # metadata = \
@@ -468,7 +499,7 @@ def main():
 
 
 
-    # stamp = Render_stamp(metadata, args.image, args.render_dir)
+    stamp = Render_stamp(metadata, args.image, args.render_dir)
     # # render_stamp(args.image, args.text, args.render_dir)
     # print("batch job finished, exiting")
 
