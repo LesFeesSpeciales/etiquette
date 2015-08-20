@@ -214,7 +214,10 @@ class Timecode_Metadata(Metadata):
 
 class Date_Metadata(Metadata):
     def get_text(self, frame):
-        return '{} : {}'.format(self.field, time.strftime("%d/%m/%Y"))
+        if self.value == 'today':
+            return '{} : {}'.format(self.field, time.strftime("%d/%m/%Y"))
+        else:
+            return self.value
 
 
 class Render_stamp:
@@ -362,18 +365,20 @@ def main():
     usage_text = \
     """Select images to add to sequence and arguments for metadata"""
 
-    parser = argparse.ArgumentParser(description=usage_text, prog="python stamp.py", epilog="ZIIIB", conflict_handler='resolve', add_help=False)
+    parser = argparse.ArgumentParser(description=usage_text, prog="python stamp.py", epilog="-----"*3, conflict_handler='resolve', add_help=False)
 
     parser.add_argument("-o", "--out", dest="render_dir", metavar='PATH',
             help="Render sequence to the specified path")
 
-    parser.add_argument("-t", "--template", dest="template", metavar='TEMPLATE',
-            help="Template file")
+    parser.add_argument("-t", "--template", help="Template file")
 
-    # print('\n')
-    # print('BEFORE')
+    parser.add_argument("-m", "--metadata", type=str,
+help="""Metadata description. They are of the form:
+field:"Author",value:"Me",position:TOP-LEFT,inline:True, size:15,color:[1,1,1]
+You can specify multiple fields separated by semicolons.""")
+
+
     args, u_args = parser.parse_known_args(argv)
-    # print('AFTER')
 
     ### parse metadata from template
     if args.template:
@@ -381,128 +386,90 @@ def main():
              template_args = f.read()
              template_args = (json.loads(template_args))
 
-        parser = argparse.ArgumentParser(parents=[parser], description=usage_text, conflict_handler='resolve', epilog="-----"*3)
+         template_metadata = template_args["metadata"]
 
+        parser = argparse.ArgumentParser(description=usage_text, conflict_handler='resolve', epilog="-----"*3)
+
+        parser.add_argument("-o", "--out", dest="render_dir", metavar='PATH',
+                help="Render sequence to the specified path")
+        parser.add_argument("-t", "--template", help="Template file")
         parser.add_argument("image", nargs='+', type=str, help="Path to an image")
         parser.add_argument("--default", help="Use all default values", action='store_true')
 
 
-        for arg in template_args:
+        for arg in template_metadata:
 
-            # parser.add_argument('-{}'.format(arg["field"][0].lower()), '--{}'.format(arg["field"].lower()), dest=arg["field"].lower(),
-            #     help=arg["field"])
             if arg["value"] is None:
                 parser.add_argument('--{}'.format(arg["field"].lower()), dest=arg["field"].lower(),
                     help=arg["field"], action='store_true', default=None)
                 
             else:
                 parser.add_argument('--{}'.format(arg["field"].lower()), dest=arg["field"].lower(),
-                    help=arg["field"])
+                    help=arg["field"], nargs="?", const=arg["value"])
 
         args = parser.parse_args(argv)
 
-        # if not (args.image or u_args.image):
-        # # if "help" in args or not args.image:
-        #     parser.print_help()
-
-        for arg in template_args[:]:
-            # print(arg)
+        for arg in template_metadata[:]:
 
             arg_key = arg["field"].lower()
             if hasattr(args, arg_key):
                 arg_value = getattr(args, arg_key)
                 if arg_value is not None:
                     print (arg_key, ":", arg_value)
+                    arg_index = template_metadata.index(arg)
+                    template_metadata[arg_index]["value"] = arg_value
                 elif not args.default:
                     print(arg, 'JUST POPPED')
-                    template_args.remove(arg)
-
-            else:
-                print(arg_key, "missing from args")
+                    template_metadata.remove(arg)
 
         print("\nTEMPLATE_ARGS")
-        pprint(template_args)
-        metadata = template_args
+        pprint(template_metadata)
+        metadata = template_metadata
 
-
-    else:
+    ### parse metadata from metadata string
+    elif args.metadata:
         usage_text = \
     """Select images to add to sequence and arguments for metadata.
 Special fields for metada:
     - date returns today's date by default.
     - frame returns the current frame
     - timecode returns the current timecode"""
-        parser = argparse.ArgumentParser(parents=[parser], description=usage_text, epilog="-----"*3, conflict_handler='resolve', formatter_class=argparse.RawTextHelpFormatter)
+        parser = argparse.ArgumentParser(description=usage_text, epilog="-----"*3, conflict_handler='resolve', formatter_class=argparse.RawTextHelpFormatter)
 
         parser.add_argument("image", nargs='+', type=str, help="Path to an image")
-        parser.add_argument("metadatas", nargs='+', type=str,
+        parser.add_argument("-m", "--metadata", type=str,
 help="""Metadata description. They are of the form:
 field:"Author",value:"Me",position:TOP-LEFT,inline:True, size:15,color:[1,1,1]
 You can specify multiple fields separated by semicolons.""")
         
         args = parser.parse_args(argv)
 
+        default_meta = {
+            'position': 'BOTTOM-LEFT',
+            'field': 'Field',
+            'value': 'Value',
+            'color': [1.0, 1.0, 1.0], 
+            'size': 10,
+            'inline': True
+        }
+        
+    else:
+        parser.add_argument("image", nargs='+', type=str, help="Path to an image")
+        parser.print_help()
+        sys.exit()
+
     # Default render dir
     if not args.render_dir:
         args.render_dir = os.path.dirname(args.image[0]) + os.path.sep
-
-
-    default_meta = {
-        'position': 'BOTTOM-LEFT',
-        'field': 'Field',
-        'value': 'Value',
-        'color': [1.0, 1.0, 1.0], 
-        'size': 10,
-        'inline': True
-    }
 
 
     # for k, v in vars(args).items():
     #     print('{:<15} : {}'.format(k,v))
 
 
-    # metadata = \
-    # [
-    #     {
-    #         'position': 'BOTTOM-LEFT',
-    #         'field': 'Séquence',
-    #         'value': 'S001',
-    #         'color': [1.0, 0.0, 0.0], 
-    #         'size': 15,
-    #         'inline': False
-    #     },
-    #     {
-    #         'position': 'BOTTOM-LEFT',
-    #         'field': 'Plan',
-    #         'value': 'P02',
-    #         'color': [0.0, 0.0, 1.0], 
-    #         'size': 15,
-    #         'inline': True
-    #     },
-    #     {
-    #         'position': 'BOTTOM-LEFT',
-    #         'field': 'Frame',
-    #         'value': None,
-    #         'color': [0.0, 0.0, 1.0], 
-    #         'size': 15,
-    #         'inline': False
-    #     },
-    #     {
-    #         'position': 'BOTTOM-LEFT',
-    #         'field': 'Date',
-    #         'value': None,
-    #         'color': [0.0, 1.0, 0.0], 
-    #         'size': 15,
-    #         'inline': True
-    #     }
-    # ]
-
 
 
     stamp = Render_stamp(metadata, args.image, args.render_dir)
-    # # render_stamp(args.image, args.text, args.render_dir)
-    # print("batch job finished, exiting")
-
 
 
 if __name__ == "__main__":
