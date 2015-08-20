@@ -1,10 +1,11 @@
 {
     "settings":
-        {"resolution":
-            [1920,1080]
-        },
+    {"resolution":
+        [1920,1080]
+    },
 
-    "metadata": [
+    "metadata": 
+    [
         {
             "position": "BOTTOM-LEFT",
             "value": "S001",

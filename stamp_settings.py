@@ -1,5 +1,7 @@
 # TODO
 # - color formats: hex, html names
+# - cleanup parsing: avoid duplication for template/metadata modes
+# - ffmpeg: check env, tmp dir, command
 
 
 import bpy
@@ -8,6 +10,16 @@ from pprint import pprint
 
 
 ### UTILS
+def HTMLColorToRGB(colorstring):
+    """ convert #RRGGBB to an (R, G, B) tuple, from http://code.activestate.com/recipes/266466-html-colors-tofrom-rgb-tuples/ """
+    colorstring = colorstring.strip()
+    if colorstring[0] == '#': colorstring = colorstring[1:]
+    if len(colorstring) != 6:
+        raise ValueError("input #%s is not in #RRGGBB format" % colorstring)
+    r, g, b = colorstring[:2], colorstring[2:4], colorstring[4:]
+    r, g, b = [int(n, 16)/255.0 for n in (r, g, b)]
+    return (r, g, b)
+
 def frames_to_timecode(frame, framerate=25):
     """from http://stackoverflow.com/questions/8488238/how-to-do-timecode-calculation"""
     return '{0:02d}:{1:02d}:{2:02d}:{3:02d}'.format(frame // (3600*framerate),
@@ -106,9 +118,13 @@ class Metadata:
         self.parent_stamp = parent_stamp
         self.field = meta_dict['field']
         self.value = meta_dict['value']
-        self.color = meta_dict['color']
         self.size  = meta_dict['size']
         self.inline  = meta_dict['inline']
+        self.color = meta_dict['color']
+
+
+        if type(self.color) is str:
+            self.color = HTMLColorToRGB(self.color)
 
         self.channel = channel
 
@@ -195,6 +211,7 @@ class Metadata:
         txt_seq.align = align
         txt_seq.font_size = size
 
+
         col_seq = sequencer.sequences.new_effect('{}_f{:04}_BG'.format(text, frame), 'COLOR', channel+1, frame, frame+1)
         col_seq.color = font_color
         col_seq.blend_type = 'MULTIPLY'
@@ -221,14 +238,16 @@ class Date_Metadata(Metadata):
 
 
 class Render_stamp:
-    def __init__(self, metadata, images_paths, render_dir):
+    def __init__(self, metadata, images_paths, render_dir, settings):
         # self.metadatas = [[[] for x in range(3)] for y in range(3)]
         self.metadatas = []
-
-        self.setup_sequencer(images_paths, render_dir)
+        self.settings = settings
 
         for m in metadata:
             self.insert(m)
+
+        self.setup_sequencer(images_paths, render_dir)
+
 
         for m in self.metadatas:
             m.render()
@@ -275,15 +294,17 @@ class Render_stamp:
         img_seq.update()
         scene.update()
 
-
         # Get image size
         img = bpy.data.images.load(images_paths[0])
-        # print(img_seq.elements[0].filename)
-        # print('resolution:', img_seq.elements[0].orig_width, img_seq.elements[0].orig_height)
 
-        scene.render.resolution_x = img.size[0]
-        scene.render.resolution_y = img.size[1]
-        self.resolution = img.size[0], img.size[1]
+        settings = self.settings
+
+        output_width = settings["resolution"][0] if "resolution" in settings else img.size[0]
+        output_height = settings["resolution"][1] if "resolution" in settings else img.size[1]
+
+        scene.render.resolution_x = output_width
+        scene.render.resolution_y = output_height
+        self.resolution = output_width, output_height
 
         # scene.render.resolution_x = img_seq.elements[0].orig_width
         # scene.render.resolution_y = img_seq.elements[0].orig_height
@@ -369,8 +390,9 @@ def main():
 
     parser.add_argument("-o", "--out", dest="render_dir", metavar='PATH',
             help="Render sequence to the specified path")
-
     parser.add_argument("-t", "--template", help="Template file")
+    parser.add_argument("-w", "--width", help="Output width", type=int)
+    parser.add_argument("-h", "--height", help="Output width", type=int)
 
     parser.add_argument("-m", "--metadata", type=str,
 help="""Metadata description. They are of the form:
@@ -386,13 +408,15 @@ You can specify multiple fields separated by semicolons.""")
              template_args = f.read()
              template_args = (json.loads(template_args))
 
-         template_metadata = template_args["metadata"]
+        template_metadata = template_args["metadata"]
 
         parser = argparse.ArgumentParser(description=usage_text, conflict_handler='resolve', epilog="-----"*3)
 
         parser.add_argument("-o", "--out", dest="render_dir", metavar='PATH',
                 help="Render sequence to the specified path")
         parser.add_argument("-t", "--template", help="Template file")
+        parser.add_argument("-w", "--width", help="Output width", type=int)
+        parser.add_argument("-h", "--height", help="Output width", type=int)
         parser.add_argument("image", nargs='+', type=str, help="Path to an image")
         parser.add_argument("--default", help="Use all default values", action='store_true')
 
@@ -408,6 +432,8 @@ You can specify multiple fields separated by semicolons.""")
                     help=arg["field"], nargs="?", const=arg["value"])
 
         args = parser.parse_args(argv)
+
+
 
         for arg in template_metadata[:]:
 
@@ -426,6 +452,10 @@ You can specify multiple fields separated by semicolons.""")
         pprint(template_metadata)
         metadata = template_metadata
 
+        settings = template_args["settings"]
+
+
+
     ### parse metadata from metadata string
     elif args.metadata:
         usage_text = \
@@ -436,27 +466,52 @@ Special fields for metada:
     - timecode returns the current timecode"""
         parser = argparse.ArgumentParser(description=usage_text, epilog="-----"*3, conflict_handler='resolve', formatter_class=argparse.RawTextHelpFormatter)
 
+        parser.add_argument("-o", "--out", dest="render_dir", metavar='PATH',
+                help="Render sequence to the specified path")
+        parser.add_argument("-t", "--template", help="Template file")
+        parser.add_argument("-w", "--width", help="Output width", type=int)
+        parser.add_argument("-h", "--height", help="Output width", type=int)
         parser.add_argument("image", nargs='+', type=str, help="Path to an image")
         parser.add_argument("-m", "--metadata", type=str,
 help="""Metadata description. They are of the form:
-field:"Author",value:"Me",position:TOP-LEFT,inline:True, size:15,color:[1,1,1]
-You can specify multiple fields separated by semicolons.""")
+{"field":"Author","value":"Me","position":"TOP-LEFT","inline":true,"size":15,"color":[1,1,1]}
+You can specify multiple fields inside the braces separated by semicolons.""")
         
         args = parser.parse_args(argv)
 
+        _metadata = json.loads(args.metadata)
+        metadata = []
         default_meta = {
             'position': 'BOTTOM-LEFT',
             'field': 'Field',
             'value': 'Value',
-            'color': [1.0, 1.0, 1.0], 
-            'size': 10,
+            'color': [0.0, 0.0, 0.0], 
+            'size': 15,
             'inline': True
         }
+
+        for m in _metadata:
+            metadata.append(default_meta.copy())
+            for k, v in m.items():
+                metadata[-1][k] = v
+
+        settings = {}
         
     else:
         parser.add_argument("image", nargs='+', type=str, help="Path to an image")
         parser.print_help()
         sys.exit()
+
+
+    # Default resolution
+    if not "resolution" in settings:
+        settings["resolution"] = [1920,1080]
+        
+    # Output resolution from command line
+    if hasattr(args, "width") and args.width is not None:
+        settings["resolution"][0] = args.width
+    if hasattr(args, "height") and args.height is not None:
+        settings["resolution"][1] = args.height
 
     # Default render dir
     if not args.render_dir:
@@ -469,7 +524,7 @@ You can specify multiple fields separated by semicolons.""")
 
 
 
-    stamp = Render_stamp(metadata, args.image, args.render_dir)
+    stamp = Render_stamp(metadata, args.image, args.render_dir, settings)
 
 
 if __name__ == "__main__":
