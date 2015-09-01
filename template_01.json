@@ -7,64 +7,65 @@
     "metadata": 
     [
         {
-            "position": "BOTTOM-LEFT",
+            "field": "Sequence",
             "value": "S001",
+            "format": "{field} : {value}",
+            "position": "BOTTOM-LEFT",
             "size": 15,
             "color": [
                 1.0,
                 1.0,
                 1.0
             ],
-            "inline": false,
-            "field": "Sequence"
+            "inline": false
         },
         {
-            "position": "BOTTOM-LEFT",
+            "field": "Shot",
             "value": "P01",
-            "size": 15,
-            "color": [
-                1.0,
-                1.0,
-                1.0
-            ],
-            "inline": true,
-            "field": "Shot"
-        },
-        {
             "position": "BOTTOM-LEFT",
-            "value": null,
             "size": 15,
             "color": [
                 1.0,
                 1.0,
                 1.0
             ],
-            "inline": false,
-            "field": "Frame"
+            "inline": true
         },
         {
+            "field": "Frame",
+            "value": null,
             "position": "BOTTOM-LEFT",
-            "value": null,
             "size": 15,
             "color": [
                 1.0,
                 1.0,
                 1.0
             ],
-            "inline": true,
-            "field": "Timecode"
+            "inline": false
         },
         {
-            "position": "TOP-LEFT",
+            "field": "Timecode",
+            "value": null,
+            "position": "BOTTOM-LEFT",
+            "size": 15,
+            "color": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "inline": true
+        },
+        {
+            "field": "Date",
             "value": "today",
+            "position": "TOP-LEFT",
             "size": 15,
             "color": [
                 1.0,
                 1.0,
                 1.0
             ],
-            "inline": false,
-            "field": "Date"
+            "inline": false
         }
     ]
 }
