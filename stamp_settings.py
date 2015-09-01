@@ -231,10 +231,9 @@ class Timecode_Metadata(Metadata):
 
 class Date_Metadata(Metadata):
     def get_text(self, frame):
-        if self.value == 'today':
-            return '{} : {}'.format(self.field, time.strftime("%d/%m/%Y"))
-        else:
-            return self.value
+        date = time.strftime("%d/%m/%Y") if self.value == 'today' else self.value
+        date = '{} : {}'.format(self.field, date)
+        return date
 
 
 class Render_stamp:
