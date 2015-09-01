@@ -115,12 +115,13 @@ class Metadata:
         # ]
 
         self.parent_stamp = parent_stamp
-        self.field = meta_dict['field']
-        self.value = meta_dict['value']
-        self.size  = meta_dict['size']
-        self.inline  = meta_dict['inline']
-        self.color = meta_dict['color']
-
+        # self.field = meta_dict['field']
+        # self.value = meta_dict['value']
+        # self.size  = meta_dict['size']
+        # self.inline  = meta_dict['inline']
+        # self.color = meta_dict['color']
+        for k, v in meta_dict.items():
+            setattr(self, k, v)
 
         if type(self.color) is str:
             self.color = HTMLColorToRGB(self.color)
@@ -133,9 +134,6 @@ class Metadata:
             self.align = 'CENTER'
         elif screen_position[0] == 2:
             self.align = 'RIGHT'
-
-    def get_text(self, frame):
-        return '{} : {}'.format(self.field, self.value)
 
     def get_blender_position(self):
         x, y = 0.0, 0.0
@@ -186,12 +184,10 @@ class Metadata:
         for f in range(*self.parent_stamp.frame_range):
 
             text = self.get_text(f)
+
             channel = 2
 
             self.add_text(self.parent_stamp.sequencer, text, self.get_blender_position(), self.size, channel, f, self.align, self.color)
-            # txt_seq = sequencer.sequences.new_effect('txt_{:04}'.format(f), 'TEXT', 2, f+1, f+2)
-            # txt_seq.text = text + ' {:04}'.format(f+1)
-            # txt_seq.blend_type = 'OVER_DROP'
 
     @staticmethod
     def add_text(sequencer, text, position, size, channel, frame, align, font_color=[1.0,1.0,1.0]):
@@ -211,7 +207,7 @@ class Metadata:
         txt_seq.font_size = size
 
 
-        col_seq = sequencer.sequences.new_effect('{}_f{:04}_BG'.format(text, frame), 'COLOR', channel+1, frame, frame+1)
+        col_seq = sequencer.sequences.new_effect('{}_f{:04}_col'.format(text, frame), 'COLOR', channel+1, frame, frame+1)
         col_seq.color = font_color
         col_seq.blend_type = 'MULTIPLY'
         # txt_seq.location = position
@@ -220,18 +216,32 @@ class Metadata:
         meta_strip = sequencer.active_strip
         meta_strip.blend_type = 'OVER_DROP'
 
-class Frame_Metadata(Metadata):
     def get_text(self, frame):
-        return '{} : {:02}'.format(self.field, frame)
+        value = self.get_value(frame)
+
+        text_format = self.format if hasattr(self, "format") else '{field} : {value}'
+
+        text = text_format.format(field=self.field, value=value)
+        return text
+
+    def get_value(self, frame):
+        return self.value
+        # return '{} : {}'.format(self.field, self.value)
+
+class Frame_Metadata(Metadata):
+    def get_value(self, frame):
+        return frame
+        # return '{} : {:02}'.format(self.field, frame)
 
 class Timecode_Metadata(Metadata):
-    def get_text(self, frame):
-        return '{} : {}'.format(self.field, frames_to_timecode(frame))
+    def get_value(self, frame):
+        return frames_to_timecode(frame)
+        # return '{} : {}'.format(self.field, frames_to_timecode(frame))
 
 class Date_Metadata(Metadata):
-    def get_text(self, frame):
+    def get_value(self, frame):
         date = time.strftime("%d/%m/%Y") if self.value == 'today' else self.value
-        date = '{} : {}'.format(self.field, date)
+        # date = '{} : {}'.format(self.field, date)
         return date
 
 
@@ -405,11 +415,14 @@ You can specify multiple fields separated by semicolons.""")
 
 
         for arg in template_metadata:
-
+            
+            # if the value in the template is null, the field is a flag (cf. store_true);
+            # only special fields are options, as frame, timecode, date
             if arg["value"] is None:
                 parser.add_argument('--{}'.format(arg["field"].lower()), dest=arg["field"].lower(),
                     help=arg["field"], action='store_true', default=None)
-                
+            
+            # otherwise, it's an argument
             else:
                 parser.add_argument('--{}'.format(arg["field"].lower()), dest=arg["field"].lower(),
                     help=arg["field"], nargs="?", const=arg["value"])
