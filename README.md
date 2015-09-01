@@ -120,7 +120,7 @@ Some fields have a special behaviour.
 
 This template generates the following image:
 
-![](https://github.com/LesFeesSpeciales/tools/blob/master/stamp/example.png)
+![](https://github.com/LesFeesSpeciales/etiquette/blob/master/example.png)
 
 ## License
 
