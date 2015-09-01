@@ -369,7 +369,7 @@ def main():
     usage_text = \
     """Select images to add to sequence and arguments for metadata"""
 
-    parser = argparse.ArgumentParser(description=usage_text, prog="python stamp.py", epilog="-----"*3, conflict_handler='resolve', add_help=False)
+    parser = argparse.ArgumentParser(description=usage_text, prog="python etiquette.py", epilog="-----"*3, conflict_handler='resolve', add_help=False)
 
     parser.add_argument("-o", "--out", dest="render_dir", metavar='PATH',
             help="Render sequence to the specified path")
