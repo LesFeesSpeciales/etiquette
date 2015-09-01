@@ -12,31 +12,31 @@
             "size": 15,
             "color": [
                 1.0,
-                0.0,
-                0.0
+                1.0,
+                1.0
             ],
             "inline": false,
-            "field": "S\u00e9quence"
+            "field": "Sequence"
         },
         {
             "position": "BOTTOM-LEFT",
             "value": "P01",
             "size": 15,
             "color": [
-                0.0,
-                0.0,
+                1.0,
+                1.0,
                 1.0
             ],
             "inline": true,
-            "field": "Plan"
+            "field": "Shot"
         },
         {
             "position": "BOTTOM-LEFT",
             "value": null,
             "size": 15,
             "color": [
-                0.0,
-                0.0,
+                1.0,
+                1.0,
                 1.0
             ],
             "inline": false,
@@ -47,9 +47,9 @@
             "value": null,
             "size": 15,
             "color": [
-                0.0,
-                0.0,
-                0.0
+                1.0,
+                1.0,
+                1.0
             ],
             "inline": true,
             "field": "Timecode"
@@ -59,9 +59,9 @@
             "value": "today",
             "size": 15,
             "color": [
-                0.0,
                 1.0,
-                0.0
+                1.0,
+                1.0
             ],
             "inline": false,
             "field": "Date"
