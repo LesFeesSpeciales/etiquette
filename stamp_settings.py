@@ -1,5 +1,4 @@
 # TODO
-# - color formats: hex, html names
 # - cleanup parsing: avoid duplication for template/metadata modes
 # - ffmpeg: check env, tmp dir, command
 
@@ -272,14 +271,9 @@ class Render_stamp:
             images_paths.sort(key=get_frame_number)
 
         
-        # self.sequence_length = len(images_paths)
-        # print('Sequence length:', self.sequence_length)
-
-
         scene.frame_start = get_frame_number(images_paths[0])
         scene.frame_end = get_frame_number(images_paths[-1])
         self.frame_range = (scene.frame_start, scene.frame_end+1)
-        # scene.frame_end = img_seq.frame_final_duration
 
         img_seq = self.sequencer.sequences.new_image('img', images_paths[0], 1, scene.frame_start)
 
@@ -305,12 +299,8 @@ class Render_stamp:
         scene.render.resolution_y = output_height
         self.resolution = output_width, output_height
 
-        # scene.render.resolution_x = img_seq.elements[0].orig_width
-        # scene.render.resolution_y = img_seq.elements[0].orig_height
         scene.render.resolution_percentage = 100
         
-        scene.render.filepath = '//machin'
-
         if bpy.app.build_options.codec_ffmpeg:
             scene.render.image_settings.file_format = 'H264'
             scene.render.ffmpeg.format = 'QUICKTIME'
@@ -343,8 +333,7 @@ class Render_stamp:
 
         channel = 2
 
-        # print('\n', meta['field'])
-        # print(meta['field'] == 'Frame')
+        # is there a better way of doing this?
 
         if meta['field'] == 'Frame':
             meta_type = Frame_Metadata
@@ -355,7 +344,6 @@ class Render_stamp:
         else:
             meta_type = Metadata
 
-        # print(meta_type)
         self.metadatas.append(meta_type(self, meta, (x, y), channel))
 
 
@@ -377,10 +365,6 @@ def main():
         argv = []  # as if no args are passed
     else:
         argv = argv[argv.index("--") + 1:]  # get all args after "--"
-
-    # print('    INSIDE ARGS:', argv)
-    # print('    INSIDE FILE:', os.path.abspath(__file__))
-    # When --help or no args are given, print this help
 
     usage_text = \
     """Select images to add to sequence and arguments for metadata"""
@@ -440,11 +424,9 @@ You can specify multiple fields separated by semicolons.""")
             if hasattr(args, arg_key):
                 arg_value = getattr(args, arg_key)
                 if arg_value is not None:
-                    print (arg_key, ":", arg_value)
                     arg_index = template_metadata.index(arg)
                     template_metadata[arg_index]["value"] = arg_value
                 elif not args.default:
-                    print(arg, 'JUST POPPED')
                     template_metadata.remove(arg)
 
         print("\nTEMPLATE_ARGS")
@@ -515,12 +497,6 @@ You can specify multiple fields inside the braces separated by semicolons.""")
     # Default render dir
     if not args.render_dir:
         args.render_dir = os.path.dirname(args.image[0]) + os.path.sep
-
-
-    # for k, v in vars(args).items():
-    #     print('{:<15} : {}'.format(k,v))
-
-
 
 
     stamp = Render_stamp(metadata, args.image, args.render_dir, settings)
