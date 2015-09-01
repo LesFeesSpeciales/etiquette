@@ -10,15 +10,15 @@ videos to clients with important information.
 
 ## Usage
 As of august 2015, the Blender binary has to be downloaded from the [Blender Buildbot](https://builder.blender.org/), or compiled from the latest git version, as it includes the Text Sequence used in the script.
-Right now, the path to the **blender binary** has to be specified in the stamp.py file, in the `blender_bin` variable.
+Right now, the path to the **blender binary** has to be specified in the etiquette.py file, in the `blender_bin` variable.
 
 The script is written in Python, and uses Blender for image marking and rendering. The script is command-line only at the moment. To get usage help, type:
-```python stamp.py --help```
+```python etiquette.py --help```
 
 
 ## Template mode
 A .json template file can be written to speed up the marking process, once a specification has been decided upon. In *template mode*, you have to call the script thus:
-`python stamp.py --template PATH/TO/TEMPLATE.json PATH/TO/IMAGE.ext [--options...]`
+`python etiquette.py --template PATH/TO/TEMPLATE.json PATH/TO/IMAGE.ext [--options...]`
 Type `--help` to get a list of options you can type. These options are specified in the template.json file, in the following form:
 ```
 [
